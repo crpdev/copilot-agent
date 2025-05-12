@@ -1,0 +1,32 @@
+{
+  "name": "copilot-java-migration-agent",
+  "displayName": "Copilot Java Migration Agent",
+  "description": "GitHub Copilot agent for Java migration using VS Code's GPT-4 and a Maven MCP server.",
+  "version": "1.0.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": ">=1.70.0"
+  },
+  "main": "extension.js",
+  "activationEvents": [
+    "onCommand:copilotAgent.analyzeWithGpt4"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotAgent.analyzeWithGpt4",
+        "title": "Analyze Java Project with GPT-4"
+      }
+    ]
+  },
+  "scripts": {
+    "analyze": "node -e \"require('./copilotAgent').analyze()\""
+  },
+  "dependencies": {
+    "xml2js": "^0.4.23",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "vscode": "^1.1.37"
+  }
+} 
