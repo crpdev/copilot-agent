@@ -1,7 +1,7 @@
 // extension.js
 const vscode = require('vscode');
-const copilotAgent = require('./copilotAgent');
 const openai = require('openai');
+const mathChatAgent = require('./mathChatAgent');
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -21,14 +21,14 @@ async function getOpenAIApiKey(context) {
   return apiKey;
 }
 
-async function askGpt4(apiKey, deps) {
+async function askGpt4(apiKey, question) {
   const configuration = new openai.Configuration({ apiKey });
   const openaiClient = new openai.OpenAIApi(configuration);
-  const prompt = `You are a Java migration assistant. Given the following Maven dependencies and Java version, provide migration advice and highlight any potential issues or modernization opportunities.\n\n${JSON.stringify(deps, null, 2)}`;
+  const prompt = `You are a Math operations assistant. Answer the user's math question, perform calculations, and explain your solution if needed. Question: ${question}`;
   const response = await openaiClient.createChatCompletion({
     model: 'gpt-4',
     messages: [
-      { role: 'system', content: 'You are a helpful Java migration assistant.' },
+      { role: 'system', content: 'You are a helpful math operations assistant. You can answer math questions, perform calculations, and explain your reasoning.' },
       { role: 'user', content: prompt }
     ],
     max_tokens: 500
@@ -37,40 +37,97 @@ async function askGpt4(apiKey, deps) {
 }
 
 function activate(context) {
-  let disposable = vscode.commands.registerCommand('copilotAgent.analyzeWithGpt4', async function () {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-      vscode.window.showErrorMessage('No workspace folder open.');
-      return;
-    }
-    const workspaceDir = workspaceFolders[0].uri.fsPath;
-    const outputChannel = vscode.window.createOutputChannel('Java Migration Agent');
-    outputChannel.show();
-    outputChannel.appendLine('Analyzing pom.xml files...');
-    const pomFiles = copilotAgent.findPomFiles(workspaceDir);
-    if (pomFiles.length === 0) {
-      outputChannel.appendLine('No pom.xml files found in workspace.');
-      return;
-    }
-    const apiKey = await getOpenAIApiKey(context);
-    if (!apiKey) {
-      outputChannel.appendLine('OpenAI API key not provided.');
-      return;
-    }
-    for (const pomPath of pomFiles) {
-      outputChannel.appendLine(`\nAnalyzing: ${pomPath}`);
-      const deps = await copilotAgent.analyzePom(pomPath);
-      outputChannel.appendLine('Dependencies: ' + JSON.stringify(deps, null, 2));
-      try {
-        outputChannel.appendLine('Querying GPT-4 for migration advice...');
-        const gpt4Response = await askGpt4(apiKey, deps);
-        outputChannel.appendLine('GPT-4 analysis: ' + gpt4Response);
-      } catch (err) {
-        outputChannel.appendLine('Error querying GPT-4: ' + err.message);
+  let mathChatDisposable = vscode.commands.registerCommand('mathChatAgent.chat', async function () {
+    try {
+      const op = await vscode.window.showInputBox({ prompt: 'Enter operation (add, subtract, multiply, divide):' });
+      if (!op) {
+        vscode.window.showInformationMessage('No operation provided.');
+        return;
       }
+      const aStr = await vscode.window.showInputBox({ prompt: 'Enter first number:' });
+      if (!aStr) {
+        vscode.window.showInformationMessage('No first number provided.');
+        return;
+      }
+      const bStr = await vscode.window.showInputBox({ prompt: 'Enter second number:' });
+      if (!bStr) {
+        vscode.window.showInformationMessage('No second number provided.');
+        return;
+      }
+      const a = parseFloat(aStr);
+      const b = parseFloat(bStr);
+      if (isNaN(a) || isNaN(b)) {
+        vscode.window.showInformationMessage('Invalid number input.');
+        return;
+      }
+      const mathMcp = require('./mathMcpBridge');
+      let result;
+      if (op === 'add') result = await mathMcp.add(a, b);
+      else if (op === 'subtract') result = await mathMcp.subtract(a, b);
+      else if (op === 'multiply') result = await mathMcp.multiply(a, b);
+      else if (op === 'divide') result = await mathMcp.divide(a, b);
+      else {
+        vscode.window.showInformationMessage('Unknown operation.');
+        return;
+      }
+      if (result && result.result !== undefined) {
+        vscode.window.showInformationMessage('Result: ' + result.result);
+      } else if (result && result.error) {
+        vscode.window.showInformationMessage('Error: ' + result.error);
+      } else {
+        vscode.window.showInformationMessage('Could not compute the result.');
+      }
+    } catch (err) {
+      vscode.window.showErrorMessage('Error: ' + err.message);
     }
   });
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(mathChatDisposable);
+
+  // Register chat provider for @-mention math operations
+  if (vscode.chat && vscode.chat.registerChatProvider) {
+    context.subscriptions.push(
+      vscode.chat.registerChatProvider('mathChatAgent', {
+        async provideReply(request, chatCtx, progress, token) {
+          const match = request.message.match(/^@(add|subtract|multiply|divide)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/i);
+          if (match) {
+            const op = match[1].toLowerCase();
+            const a = parseFloat(match[2]);
+            const b = parseFloat(match[3]);
+            let result;
+            const mathMcp = require('./mathMcpBridge');
+            if (op === 'add') result = await mathMcp.add(a, b);
+            else if (op === 'subtract') result = await mathMcp.subtract(a, b);
+            else if (op === 'multiply') result = await mathMcp.multiply(a, b);
+            else if (op === 'divide') result = await mathMcp.divide(a, b);
+            if (result && result.result !== undefined) {
+              return { text: `Result: ${result.result}` };
+            } else if (result && result.error) {
+              return { text: `Error: ${result.error}` };
+            } else {
+              return { text: 'Could not compute the result.' };
+            }
+          }
+          // Fallback to GPT for other messages
+          const apiKey = await getOpenAIApiKey(context);
+          const gptResult = await mathChatAgent(context, request.message, async () => '');
+          return { text: gptResult };
+        },
+        async provideWelcomeMessage() {
+          return {
+            text: "Welcome to the Math Chat Agent! Use @add, @subtract, @multiply, or @divide followed by two numbers (e.g., @add 2 3)."
+          };
+        },
+        async provideSlashCommands() {
+          return [
+            { name: 'add', description: 'Add two numbers' },
+            { name: 'subtract', description: 'Subtract two numbers' },
+            { name: 'multiply', description: 'Multiply two numbers' },
+            { name: 'divide', description: 'Divide two numbers' }
+          ];
+        }
+      })
+    );
+  }
 }
 
 function deactivate() {}

@@ -9,21 +9,24 @@
   },
   "main": "extension.js",
   "activationEvents": [
-    "onCommand:copilotAgent.analyzeWithGpt4"
+    "onCommand:mathChatAgent.chat"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "copilotAgent.analyzeWithGpt4",
-        "title": "Analyze Java Project with GPT-4"
+        "command": "mathChatAgent.chat",
+        "title": "Math Chat Agent: Chat"
+      }
+    ],
+    "chat": [
+      {
+        "id": "mathChatAgent",
+        "label": "Math Chat Agent",
+        "isDefault": false
       }
     ]
   },
-  "scripts": {
-    "analyze": "node -e \"require('./copilotAgent').analyze()\""
-  },
   "dependencies": {
-    "xml2js": "^0.4.23",
     "openai": "^4.0.0"
   },
   "devDependencies": {
