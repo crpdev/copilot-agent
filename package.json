@@ -1,35 +1,37 @@
 {
-  "name": "copilot-java-migration-agent",
-  "displayName": "Copilot Java Migration Agent",
-  "description": "GitHub Copilot agent for Java migration using VS Code's GPT-4 and a Maven MCP server.",
+  "name": "math-chat-agent",
+  "displayName": "Math Chat Agent",
+  "description": "A GitHub Copilot agent for math operations using VS Code's GPT-4 and a MCP server.",
   "version": "1.0.0",
-  "publisher": "your-publisher-name",
+  "publisher": "math-agent",
   "engines": {
-    "vscode": ">=1.70.0"
+    "vscode": "^1.78.0"
   },
   "main": "extension.js",
   "activationEvents": [
-    "onCommand:mathChatAgent.chat"
   ],
   "contributes": {
-    "commands": [
+    "chatParticipants": [
       {
-        "command": "mathChatAgent.chat",
-        "title": "Math Chat Agent: Chat"
-      }
-    ],
-    "chat": [
-      {
-        "id": "mathChatAgent",
-        "label": "Math Chat Agent",
-        "isDefault": false
+        "id": "my-agent.math",
+        "fullName": "Math Agent",
+        "name": "math-agent",
+        "description": "A GitHub Copilot agent for math operations using VS Code's GPT-4 and a MCP server.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "math",
+            "description": "Math operations"
+          }
+        ]
       }
     ]
   },
   "dependencies": {
-    "openai": "^4.0.0"
+    
   },
   "devDependencies": {
-    "vscode": "^1.1.37"
+    "@types/node": "^16.0.0",
+    "vscode": "^1.78.0"
   }
 } 
